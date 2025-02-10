@@ -2,12 +2,12 @@
 <html lang="he" dir="rtl">
 <head>
   <meta charset="UTF-8">
-  <title>מעקב מדדים אישיים</title>
+  <title>מעקב מדדים אישיים - מאובטח</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-  <!-- Tailwind CSS -->
+  <!-- Tailwind CSS (CDN) -->
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- Chart.js -->
+  <!-- Chart.js (CDN) -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@3.7.0/dist/chart.min.js"></script>
   <!-- React and ReactDOM (UMD Builds) -->
   <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
@@ -28,23 +28,25 @@
       display: none;
       position: fixed;
       z-index: 50;
-      left: 0; top: 0;
-      width: 100%; height: 100%;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
       overflow: auto;
       background-color: rgba(0,0,0,0.4);
     }
     .modal-open { display: block; }
   </style>
 </head>
-
 <body class="min-h-screen bg-gradient-to-tr from-slate-50 to-slate-100 text-slate-800">
   <div id="root"></div>
 
   <script type="text/babel">
     /*************************************************************
      * LoginPage Component
-     * Renders a simple username/password form and POSTs credentials
-     * to your endpoint. If valid, calls onLoginSuccess.
+     * Renders a simple username/password form.
+     * On successful login, POSTs the credentials to your endpoint
+     * and, if the response is valid, stores session info for 30 minutes.
      *************************************************************/
     function LoginPage({ onLoginSuccess }) {
       const [username, setUsername] = React.useState("");
@@ -64,8 +66,12 @@
           return resp.json();
         })
         .then(data => {
-          // Expect the endpoint to return { success: true } when valid.
-          if(data.success) {
+          // Expect your endpoint to return { success: true } on valid login.
+          if (data.success) {
+            // Save login flag and an expiry timestamp (30 minutes from now)
+            const expiryTime = Date.now() + 30 * 60 * 1000;
+            localStorage.setItem("isLoggedIn", "true");
+            localStorage.setItem("loginExpiry", expiryTime.toString());
             onLoginSuccess();
           } else {
             setError("שם המשתמש או הסיסמה שגויים. נסה שוב.");
@@ -119,11 +125,27 @@
 
     /*************************************************************
      * AuthWrapper Component
-     * Renders the LoginPage until a successful login occurs,
-     * then renders the main App.
+     * Checks localStorage for a valid session.
+     * If a session exists and hasn't expired, renders the App.
+     * Otherwise, renders the LoginPage.
      *************************************************************/
     function AuthWrapper() {
       const [loggedIn, setLoggedIn] = React.useState(false);
+
+      React.useEffect(() => {
+        const isLoggedIn = localStorage.getItem('isLoggedIn');
+        const expiryTime = localStorage.getItem('loginExpiry');
+        if (isLoggedIn === 'true' && expiryTime) {
+          if (Date.now() < parseInt(expiryTime, 10)) {
+            setLoggedIn(true);
+          } else {
+            // Session expired—clear stored values.
+            localStorage.removeItem('isLoggedIn');
+            localStorage.removeItem('loginExpiry');
+            setLoggedIn(false);
+          }
+        }
+      }, []);
 
       function handleLoginSuccess() {
         setLoggedIn(true);
@@ -134,7 +156,7 @@
 
     /*************************************************************
      * useMeasurements Hook
-     * Fetches, adds, and removes measurement data via the Make.com endpoint.
+     * Fetches, adds, and removes measurement data via your endpoint.
      *************************************************************/
     function useMeasurements(apiUrl) {
       const [measurements, setMeasurements] = React.useState([]);
@@ -237,6 +259,7 @@
             scales: { y: { beginAtZero: false } },
           },
         });
+
         return () => {
           if (window.measurementsChartInstance) {
             window.measurementsChartInstance.destroy();
@@ -354,7 +377,6 @@
      * The main measurement tracker application.
      *************************************************************/
     function App() {
-      // Use your Make.com endpoint for measurements
       const API_URL = "https://hook.eu2.make.com/672oy8jbmaeiewkk9tsh27yszcccpvl7";
       const { measurements, addMeasurement, removeMeasurement, status } = useMeasurements(API_URL);
       const [modalOpen, setModalOpen] = React.useState(false);
@@ -505,7 +527,7 @@
     }
 
     /*************************************************************
-     * Render the Application
+     * Render the Application (with session management)
      *************************************************************/
     ReactDOM.render(<AuthWrapper />, document.getElementById('root'));
   </script>
