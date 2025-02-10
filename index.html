@@ -1,14 +1,23 @@
 <!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
-  <meta charset="UTF-8" />
-  <title>מעקב מדדים אישיים - עיצוב חדש</title>
+  <meta charset="UTF-8">
+  <title>מעקב מדדים אישיים - React גרסה</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- Chart.js -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.7.0/chart.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@3.7.0/dist/chart.min.js"></script>
+
+  <!-- React and ReactDOM (UMD Builds) -->
+  <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+
+  <!-- Babel Standalone for in-browser JSX compilation -->
+  <script src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
+
   <style>
+    /* Fade-in animation for sections */
     @keyframes fadeIn {
       from {
         opacity: 0;
@@ -23,7 +32,7 @@
       animation: fadeIn 0.8s ease-in-out forwards;
     }
 
-    /* Custom modal transition and overlay styles */
+    /* Modal styling (overlay + animation) */
     .modal {
       display: none;
       position: fixed;
@@ -36,12 +45,12 @@
       background-color: rgba(0, 0, 0, 0.5);
     }
     .modal-content {
-      background-color: #fff;
+      background-color: var(--modal-bg, #fff);
       margin: 5% auto;
       padding: 1.5rem;
       border-radius: 1rem;
       width: 90%;
-      max-width: 600px;
+      max-width: 650px;
       position: relative;
       box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
       animation: fadeIn 0.4s ease;
@@ -49,443 +58,669 @@
     .modal-open {
       display: block;
     }
+
+    /* Dark-mode synergy with the .dark class on <body> */
+    .dark .modal-content {
+      --modal-bg: #1f2937; /* Gray-800 background */
+    }
   </style>
 </head>
 
-<body class="min-h-screen bg-gradient-to-tr from-indigo-100 to-indigo-50 text-gray-800 flex flex-col">
-  <!-- Simple Header -->
-  <header class="bg-indigo-600 text-white p-4 flex items-center justify-center mb-4 shadow md:justify-start">
-    <svg class="w-8 h-8 mr-2 hidden md:block" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-      <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
-    </svg>
-    <h1 class="text-xl md:text-2xl font-bold">מעקב מדדים אישיים</h1>
-  </header>
+<body class="min-h-screen bg-gradient-to-tr from-indigo-100 to-indigo-50 text-gray-800 dark:bg-gray-900 dark:text-gray-200 transition-colors duration-300">
+<div id="root"></div>
 
-  <!-- Main container -->
-  <main class="w-full max-w-screen-lg mx-auto px-4 pb-24 flex-1">
+<!-- React Application Code -->
+<script type="text/babel">
 
-    <!-- Body Fat + Chart Card -->
-    <section id="measurements-chart" class="mb-8 fade-in">
-      <div class="bg-white rounded-2xl shadow p-6 mb-6">
-        <div class="flex flex-col gap-4 items-center justify-center">
-          <div class="text-center">
-            <div class="flex justify-center items-center mb-2">
-              <svg class="w-6 h-6 mr-2 text-indigo-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l.37 1.138a1 1 0 00.95.69h1.2c.969 0 1.371 1.24.588 1.81l-.97.704a1 1 0 00-.363 1.118l.37 1.138c.3.922-.755 1.688-1.54 1.118l-.97-.704a1 1 0 00-1.175 0l-.97.704c-.785.57-1.84-.196-1.54-1.118l.37-1.138a1 1 0 00-.363-1.118l-.97-.704c-.783-.57-.38-1.81.588-1.81h1.2a1 1 0 00.951-.69l.37-1.138z" />
-              </svg>
-              <h2 class="text-2xl font-semibold">גרף מעקב ומדדים</h2>
-            </div>
-            <p class="text-lg font-medium">
-              אחוז שומן משוער (ע"פ המדד האחרון):
-              <span id="bodyFatVal" class="font-bold text-gray-700 ml-2">0.00</span>%
-            </p>
-          </div>
-          <div class="relative w-full h-72 md:h-96">
-            <canvas id="measurementsChart"></canvas>
-          </div>
-        </div>
-      </div>
-    </section>
+/**
+ * A small helper to handle theme toggling (dark/light).
+ * Toggles a .dark class on the <body> element.
+ */
+function ThemeToggle() {
+  const [isDark, setIsDark] = React.useState(false);
 
-    <!-- Measurements Table -->
-    <section id="measurements-table" class="fade-in">
-      <div class="bg-white rounded-2xl shadow p-6 mb-8">
-        <div class="flex justify-center items-center mb-4">
-          <svg class="w-6 h-6 mr-2 text-indigo-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M3 10h4l3 9 3-18 3 9h4" />
-          </svg>
-          <h2 class="text-2xl font-semibold text-center">רשימת מדדים</h2>
-        </div>
-        <p id="noDataMsg" class="text-gray-500 italic mb-4 hidden text-center">לא הוזנו מדדים עדיין.</p>
+  React.useEffect(() => {
+    const bodyEl = document.body;
+    if (isDark) {
+      bodyEl.classList.add('dark');
+    } else {
+      bodyEl.classList.remove('dark');
+    }
+  }, [isDark]);
 
-        <!-- Mobile friendly cards: only show on small screens -->
-        <div id="mobileMeasurements" class="block sm:hidden"></div>
-
-        <!-- Desktop Table: only show on medium screens and up -->
-        <div class="overflow-x-auto hidden sm:block">
-          <table class="w-full border-collapse text-center text-sm table-auto">
-            <thead>
-              <tr class="bg-gray-100 text-gray-700">
-                <th class="border border-gray-200 py-2 px-2">תאריך</th>
-                <th class="border border-gray-200 py-2 px-2">צוואר (ס״מ)</th>
-                <th class="border border-gray-200 py-2 px-2">מותניים (ס״מ)</th>
-                <th class="border border-gray-200 py-2 px-2">אגן (ס״מ)</th>
-                <th class="border border-gray-200 py-2 px-2">משקל (ק״ג)</th>
-                <th class="border border-gray-200 py-2 px-2">הסר</th>
-              </tr>
-            </thead>
-            <tbody id="measurementsTbody" class="text-gray-700"></tbody>
-          </table>
-          <div id="status-message" class="hidden mt-4 p-3 rounded"></div>
-        </div>
-      </div>
-    </section>
-  </main>
-
-  <!-- Floating button to open modal -->
-  <button
-    class="fixed bottom-6 right-6 bg-indigo-600 text-white rounded-full w-14 h-14 text-3xl shadow-lg flex items-center justify-center hover:bg-indigo-700 hover:animate-bounce transition-colors"
-    onclick="toggleModal(true)"
-    title="הוסף מדדים">
-    <svg class="h-8 w-8" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-      <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
-    </svg>
-  </button>
-
-  <!-- Modal for Adding Measurements -->
-  <div id="addMeasurementModal" class="modal">
-    <div class="modal-content">
-      <button type="button" class="absolute right-4 top-4 text-gray-500 hover:text-gray-700" onclick="toggleModal(false)">
-        <svg class="h-6 w-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+  return (
+    <button
+      className="bg-white dark:bg-gray-600 text-indigo-600 dark:text-white rounded-full p-2 transition-colors"
+      onClick={() => setIsDark(!isDark)}
+      title="החלף ערכת נושא"
+    >
+      {/* Simple sun/moon icon swap */}
+      {isDark ? (
+        /* Moon icon */
+        <svg
+          className="w-6 h-6"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M20.354 15.354A9 9 0 1111.29 4.71a7 7 0 009.063 9.063z"
+          />
         </svg>
-      </button>
-      <h2 class="text-xl font-semibold mb-4 text-center">הוסף מדדים חדשים</h2>
-      <form id="measurements-form" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div class="flex flex-col">
-          <label for="neck" class="font-medium mb-1">צוואר (ס״מ)</label>
-          <input type="number" id="neck" step="0.1" required class="border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-600">
-        </div>
-        <div class="flex flex-col">
-          <label for="waist" class="font-medium mb-1">מותניים (ס״מ)</label>
-          <input type="number" id="waist" step="0.1" required class="border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-600">
-        </div>
-        <div class="flex flex-col">
-          <label for="hips" class="font-medium mb-1">אגן (ס״מ)</label>
-          <input type="number" id="hips" step="0.1" required class="border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-600">
-        </div>
-        <div class="flex flex-col">
-          <label for="weight" class="font-medium mb-1">משקל (ק״ג)</label>
-          <input type="number" id="weight" step="0.1" required class="border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-600">
-        </div>
-        <button
-          type="submit"
-          id="submit-btn"
-          class="bg-indigo-600 hover:bg-indigo-700 transition-colors text-white font-medium py-2 px-4 rounded focus:outline-none sm:col-span-2">
-          הוסף
-        </button>
-      </form>
+      ) : (
+        /* Sun icon */
+        <svg
+          className="w-6 h-6"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          viewBox="0 0 24 24"
+        >
+          <circle cx="12" cy="12" r="3"></circle>
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M12 2v2m6.364 1.636l-1.414 1.414M20 12h-2
+               m-1.636 6.364l-1.414-1.414M12 20v-2
+               m-4.95-2.95l-1.414 1.414M4 12H2
+               m1.636-6.364l1.414 1.414"
+          />
+        </svg>
+      )}
+    </button>
+  );
+}
+
+/**
+ * A custom hook for loading measurements from the Make.com endpoint.
+ */
+function useMeasurements(apiUrl) {
+  const [measurements, setMeasurements] = React.useState([]);
+  const [status, setStatus] = React.useState({ message: '', type: '' });
+
+  // Fetch measurements on mount
+  React.useEffect(() => {
+    fetch(apiUrl)
+      .then(resp => {
+        if (!resp.ok) throw new Error("Server error: " + resp.status);
+        return resp.json();
+      })
+      .then(data => setMeasurements(data))
+      .catch(err => {
+        console.error(err);
+        setStatus({ message: 'נכשל בטעינת נתונים', type: 'error' });
+      });
+  }, [apiUrl]);
+
+  // Utility to show status for a few seconds
+  function showStatus(message, type) {
+    setStatus({ message, type });
+    setTimeout(() => setStatus({ message: '', type: '' }), 4000);
+  }
+
+  // Add measurement
+  async function addMeasurement(newMeas) {
+    // Update local
+    setMeasurements(prev => [...prev, newMeas]);
+
+    // Post to server
+    try {
+      const resp = await fetch(apiUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'addMeasurement',
+          measurement: newMeas
+        })
+      });
+      if (!resp.ok) {
+        throw new Error('Server responded with ' + resp.status);
+      }
+      showStatus('המדד נוסף בהצלחה', 'success');
+    } catch (err) {
+      console.error(err);
+      showStatus('נכשל בהוספת המדד לשרת', 'error');
+    }
+  }
+
+  // Remove measurement
+  async function removeMeasurement(index) {
+    const target = measurements[index];
+    if (!target) return;
+
+    // Update local
+    const updated = [...measurements];
+    updated.splice(index, 1);
+    setMeasurements(updated);
+
+    // Post removal to server
+    try {
+      const resp = await fetch(apiUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'removeMeasurement',
+          measurement: target
+        })
+      });
+      if (!resp.ok) {
+        throw new Error('Server responded with ' + resp.status);
+      }
+      showStatus('המדד נמחק בהצלחה', 'success');
+    } catch (err) {
+      console.error(err);
+      showStatus('שגיאה במחיקת המדד', 'error');
+    }
+  }
+
+  return { measurements, addMeasurement, removeMeasurement, status };
+}
+
+/**
+ * Chart component that uses Chart.js. 
+ * Renders whenever `measurements` changes.
+ */
+function MeasurementsChart({ measurements }) {
+  const canvasRef = React.useRef(null);
+
+  React.useEffect(() => {
+    if (!canvasRef.current) return;
+    if (!measurements.length) {
+      // If no data, skip creating a chart
+      return;
+    }
+
+    const ctx = canvasRef.current.getContext('2d');
+
+    // Destroy any previous chart instance on re-render
+    if (window.myMeasurementChart) {
+      window.myMeasurementChart.destroy();
+    }
+
+    const labels = measurements.map((m, i) => {
+      const maybeDate = new Date(m.date);
+      if (!isNaN(maybeDate.getTime())) {
+        const dd = String(maybeDate.getDate()).padStart(2, '0');
+        const mm = String(maybeDate.getMonth() + 1).padStart(2, '0');
+        return `${dd}/${mm}`;
+      }
+      return `מדד ${i + 1}`;
+    });
+
+    window.myMeasurementChart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [
+          {
+            label: 'צוואר (ס״מ)',
+            data: measurements.map(m => m.neck),
+            borderColor: '#6366F1',
+            tension: 0.2,
+            fill: false
+          },
+          {
+            label: 'מותניים (ס״מ)',
+            data: measurements.map(m => m.waist),
+            borderColor: '#10B981',
+            tension: 0.2,
+            fill: false
+          },
+          {
+            label: 'אגן (ס״מ)',
+            data: measurements.map(m => m.hips),
+            borderColor: '#F59E0B',
+            tension: 0.2,
+            fill: false
+          },
+          {
+            label: 'משקל (ק״ג)',
+            data: measurements.map(m => m.weight),
+            borderColor: '#EF4444',
+            tension: 0.2,
+            fill: false
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          y: { beginAtZero: false }
+        }
+      }
+    });
+
+    // Cleanup on unmount
+    return () => {
+      if (window.myMeasurementChart) {
+        window.myMeasurementChart.destroy();
+      }
+    };
+  }, [measurements]);
+
+  return (
+    <div className="relative w-full h-72 md:h-96">
+      <canvas ref={canvasRef}></canvas>
     </div>
-  </div>
+  );
+}
 
-  <script>
-    // Show/hide modal
-    function toggleModal(open) {
-      const modal = document.getElementById('addMeasurementModal');
-      if (open) {
-        modal.classList.add('modal-open');
-      } else {
-        modal.classList.remove('modal-open');
-      }
+/** 
+ * Simple Body Fat calculation (same formula from original code).
+ * Called for the "last measurement" in the array.
+ */
+function calculateBodyFat(measurements = []) {
+  if (!measurements.length) return 0;
+  const last = measurements[measurements.length - 1];
+  if (!last) return 0;
+
+  // Original approximate male formula from your code
+  const waistInches = last.waist / 2.54;
+  const weightLbs   = last.weight * 2.2;
+  const numerator   = -76.76 + (4.15 * waistInches) - (0.082 * weightLbs);
+  const bf = (numerator / weightLbs) * 100;
+  return Math.max(0, bf);
+}
+
+/**
+ * Modal for adding new measurements.
+ */
+function AddMeasurementModal({ isOpen, onClose, onAdd }) {
+  const neckRef = React.useRef(null);
+  const waistRef = React.useRef(null);
+  const hipsRef = React.useRef(null);
+  const weightRef = React.useRef(null);
+
+  function handleSubmit(e) {
+    e.preventDefault();
+
+    const neckVal  = parseFloat(neckRef.current.value);
+    const waistVal = parseFloat(waistRef.current.value);
+    const hipsVal  = parseFloat(hipsRef.current.value);
+    const weightVal= parseFloat(weightRef.current.value);
+
+    if ([neckVal, waistVal, hipsVal, weightVal].some(isNaN)) {
+      alert("נא למלא את כל השדות הנדרשים");
+      return;
     }
-    // Close modal if clicked outside content
-    window.onclick = function(event) {
-      const modal = document.getElementById('addMeasurementModal');
-      if (event.target === modal) {
-        toggleModal(false);
-      }
-    }
 
-    /** The Make.com endpoint. Adjust as needed. */
-    const API_URL = "https://hook.eu2.make.com/672oy8jbmaeiewkk9tsh27yszcccpvl7";
-    /** In-memory array of measurements. */
-    let measurements = [];
-    /** A global Chart.js instance. */
-    let chart = null;
+    // Format date as DD/MM/YYYY HH:mm
+    const now   = new Date();
+    const dd    = String(now.getDate()).padStart(2, '0');
+    const mm    = String(now.getMonth() + 1).padStart(2, '0');
+    const yyyy  = now.getFullYear();
+    const hh    = String(now.getHours()).padStart(2, '0');
+    const mn    = String(now.getMinutes()).padStart(2, '0');
 
-    window.onload = function() {
-      fetchMeasurements();
-      const formEl = document.getElementById('measurements-form');
-      formEl.addEventListener('submit', handleAddMeasurement);
+    const newMeas = {
+      date: `${dd}/${mm}/${yyyy} ${hh}:${mn}`,
+      neck: neckVal,
+      waist: waistVal,
+      hips: hipsVal,
+      weight: weightVal
     };
 
-    /** Fetch existing measurements from server (GET) */
-    async function fetchMeasurements() {
-      try {
-        const resp = await fetch(API_URL);
-        if (!resp.ok) {
-          throw new Error('Server responded with ' + resp.status);
-        }
-        measurements = await resp.json();
-        renderAll();
-      } catch (err) {
-        console.error('Error fetching measurements:', err);
-        showStatus('נכשל בטעינת נתונים', 'error');
-      }
+    onAdd(newMeas);
+    neckRef.current.value = "";
+    waistRef.current.value = "";
+    hipsRef.current.value = "";
+    weightRef.current.value = "";
+    onClose();
+  }
+
+  if (!isOpen) return null;
+
+  function handleOverlayClick(e) {
+    // close if we click outside modal content
+    if (e.target.id === 'addMeasurementModal') {
+      onClose();
     }
+  }
 
-    /** Add measurement (POST) */
-    async function handleAddMeasurement(e) {
-      e.preventDefault();
-      const neckVal  = parseFloat(document.getElementById('neck').value);
-      const waistVal = parseFloat(document.getElementById('waist').value);
-      const hipsVal  = parseFloat(document.getElementById('hips').value);
-      const weightVal= parseFloat(document.getElementById('weight').value);
-
-      if ([neckVal, waistVal, hipsVal, weightVal].some(isNaN)) {
-        showStatus('נא למלא את כל השדות הנדרשים', 'error');
-        return;
-      }
-
-      // Format date as DD/MM/YYYY HH:mm
-      const now = new Date();
-      const dd  = String(now.getDate()).padStart(2, '0');
-      const mm  = String(now.getMonth()+1).padStart(2, '0');
-      const yyyy= now.getFullYear();
-      const hh  = String(now.getHours()).padStart(2, '0');
-      const mn  = String(now.getMinutes()).padStart(2, '0');
-
-      const newMeas = {
-        date: `${dd}/${mm}/${yyyy} ${hh}:${mn}`,
-        neck: neckVal,
-        waist: waistVal,
-        hips: hipsVal,
-        weight: weightVal
-      };
-
-      // Local update
-      measurements.push(newMeas);
-      renderAll();
-
-      // POST to server
-      const btn = document.getElementById('submit-btn');
-      btn.disabled = true;
-      btn.textContent = 'מוסיף...';
-
-      try {
-        const resp = await fetch(API_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            action: 'addMeasurement',
-            measurement: newMeas
-          })
-        });
-        if (!resp.ok) {
-          throw new Error('Server responded with ' + resp.status);
-        }
-        console.log('Server addMeasurement response:', await resp.text());
-        showStatus('המדד נוסף בהצלחה', 'success');
-      } catch (err) {
-        console.error('Error adding measurement:', err);
-        showStatus('נכשל בהוספת המדד', 'error');
-      } finally {
-        document.getElementById('measurements-form').reset();
-        btn.disabled = false;
-        btn.textContent = 'הוסף';
-        toggleModal(false);
-      }
-    }
-
-    /** Remove measurement by index (POST) */
-    async function removeMeasurement(index) {
-      const item = measurements[index];
-      measurements.splice(index, 1);
-      renderAll();
-
-      try {
-        const resp = await fetch(API_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            action: 'removeMeasurement',
-            measurement: item
-          })
-        });
-        if (!resp.ok) {
-          throw new Error('Server responded with ' + resp.status);
-        }
-        console.log('Server removeMeasurement response:', await resp.text());
-        showStatus('המדד נמחק בהצלחה', 'success');
-      } catch (err) {
-        console.error('Error removing measurement:', err);
-        showStatus('שגיאה במחיקת המדד', 'error');
-      }
-    }
-
-    /** Re-render everything (table, chart, bodyFatVal) */
-    function renderAll() {
-      renderTable();
-      updateBodyFat();
-      updateChart();
-    }
-
-    /** Show success/error message */
-    function showStatus(msg, type='success') {
-      const statusEl = document.getElementById('status-message');
-      statusEl.textContent = msg;
-      statusEl.classList.remove('hidden');
-      statusEl.classList.remove('bg-green-100', 'text-green-700', 'bg-red-100', 'text-red-700');
-
-      if (type === 'success') {
-        statusEl.classList.add('bg-green-100', 'text-green-700');
-      } else {
-        statusEl.classList.add('bg-red-100', 'text-red-700');
-      }
-      setTimeout(() => {
-        statusEl.classList.add('hidden');
-      }, 4000);
-    }
-
-    /** Table + Mobile rendering */
-    function renderTable() {
-      const noData = document.getElementById('noDataMsg');
-      const tbody = document.getElementById('measurementsTbody');
-      const mobileContainer = document.getElementById('mobileMeasurements');
-
-      tbody.innerHTML = '';
-      mobileContainer.innerHTML = '';
-
-      if (measurements.length === 0) {
-        noData.classList.remove('hidden');
-      } else {
-        noData.classList.add('hidden');
-      }
-
-      measurements.forEach((m, idx) => {
-        // Format date if possible
-        let displayDate = m.date;
-        const maybe = new Date(m.date);
-        if (!isNaN(maybe.getTime())) {
-          const d = String(maybe.getDate()).padStart(2, '0');
-          const mon = String(maybe.getMonth()+1).padStart(2, '0');
-          const y = maybe.getFullYear();
-          const hh = String(maybe.getHours()).padStart(2, '0');
-          const mn = String(maybe.getMinutes()).padStart(2, '0');
-          displayDate = `${d}/${mon}/${y} ${hh}:${mn}`;
-        }
-
-        // Desktop table row
-        const tr = document.createElement('tr');
-        tr.classList.add('transition', 'hover:bg-gray-50');
-        tr.innerHTML = `
-          <td class='border border-gray-200 py-2 px-2 text-center align-middle'>${displayDate}</td>
-          <td class='border border-gray-200 py-2 px-2 text-center align-middle'>${m.neck}</td>
-          <td class='border border-gray-200 py-2 px-2 text-center align-middle'>${m.waist}</td>
-          <td class='border border-gray-200 py-2 px-2 text-center align-middle'>${m.hips}</td>
-          <td class='border border-gray-200 py-2 px-2 text-center align-middle'>${m.weight}</td>
-          <td class='border border-gray-200 py-2 px-2 text-center align-middle'>
-            <button
-              class="bg-red-600 hover:bg-red-700 text-white py-1 px-2 rounded focus:outline-none flex items-center justify-center gap-1 mx-auto"
-              onclick="removeMeasurement(${idx})">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-              </svg>
-              הסר
-            </button>
-          </td>
-        `;
-        tbody.appendChild(tr);
-
-        // Mobile card
-        const card = document.createElement('div');
-        card.classList.add('bg-gray-50', 'rounded', 'mb-4', 'p-3', 'shadow', 'flex', 'flex-col');
-        card.innerHTML = `
-          <p class='text-sm text-gray-700'><span class='font-semibold'>תאריך: </span>${displayDate}</p>
-          <p class='text-sm text-gray-700'><span class='font-semibold'>צוואר: </span>${m.neck}</p>
-          <p class='text-sm text-gray-700'><span class='font-semibold'>מותניים: </span>${m.waist}</p>
-          <p class='text-sm text-gray-700'><span class='font-semibold'>אגן: </span>${m.hips}</p>
-          <p class='text-sm text-gray-700'><span class='font-semibold'>משקל: </span>${m.weight}</p>
-          <div class='mt-2'>
-            <button
-              class="bg-red-600 hover:bg-red-700 text-white py-1 px-2 rounded focus:outline-none flex items-center justify-center gap-1"
-              onclick="removeMeasurement(${idx})">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-              </svg>
-              הסר
-            </button>
+  return (
+    <div
+      id="addMeasurementModal"
+      className="modal modal-open"
+      onClick={handleOverlayClick}
+    >
+      <div className="modal-content dark:text-white">
+        <button
+          type="button"
+          className="absolute right-4 top-4 text-gray-500 hover:text-gray-700 dark:text-gray-300 dark:hover:text-gray-100"
+          onClick={onClose}
+        >
+          <svg
+            className="h-6 w-6"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            viewBox="0 0 24 24"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+        <h2 className="text-xl font-semibold mb-4 text-center">הוסף מדדים חדשים</h2>
+        <form onSubmit={handleSubmit} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="flex flex-col">
+            <label htmlFor="neck" className="font-medium mb-1">צוואר (ס״מ)</label>
+            <input
+              ref={neckRef}
+              type="number"
+              step="0.1"
+              className="border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-600 dark:bg-gray-700 dark:border-gray-600"
+              required
+            />
           </div>
-        `;
-        mobileContainer.appendChild(card);
-      });
-    }
+          <div className="flex flex-col">
+            <label htmlFor="waist" className="font-medium mb-1">מותניים (ס״מ)</label>
+            <input
+              ref={waistRef}
+              type="number"
+              step="0.1"
+              className="border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-600 dark:bg-gray-700 dark:border-gray-600"
+              required
+            />
+          </div>
+          <div className="flex flex-col">
+            <label htmlFor="hips" className="font-medium mb-1">אגן (ס״מ)</label>
+            <input
+              ref={hipsRef}
+              type="number"
+              step="0.1"
+              className="border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-600 dark:bg-gray-700 dark:border-gray-600"
+              required
+            />
+          </div>
+          <div className="flex flex-col">
+            <label htmlFor="weight" className="font-medium mb-1">משקל (ק״ג)</label>
+            <input
+              ref={weightRef}
+              type="number"
+              step="0.1"
+              className="border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-600 dark:bg-gray-700 dark:border-gray-600"
+              required
+            />
+          </div>
+          <button
+            type="submit"
+            className="bg-indigo-600 hover:bg-indigo-700 transition-colors text-white font-medium py-2 px-4 rounded focus:outline-none sm:col-span-2"
+          >
+            הוסף
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
 
-    /** Body Fat for last measurement */
-    function updateBodyFat() {
-      const bfVal = document.getElementById('bodyFatVal');
-      bfVal.textContent = calculateBodyFat().toFixed(2);
-    }
-    function calculateBodyFat() {
-      if (measurements.length===0) return 0;
-      const last = measurements[measurements.length-1];
-      if (!last) return 0;
+/** 
+ * The main application component.
+ */
+function App() {
+  const API_URL = "https://hook.eu2.make.com/672oy8jbmaeiewkk9tsh27yszcccpvl7"; 
+  const { measurements, addMeasurement, removeMeasurement, status } = useMeasurements(API_URL);
 
-      const waistInches = last.waist / 2.54;
-      const weightLbs   = last.weight * 2.2;
-      const numerator   = -76.76 + (4.15*waistInches) - (0.082*weightLbs);
-      return Math.max(0, (numerator / weightLbs)*100);
-    }
+  const [modalOpen, setModalOpen] = React.useState(false);
 
-    /** Use Chart.js for the line chart */
-    function updateChart() {
-      const ctx = document.getElementById('measurementsChart').getContext('2d');
+  // Calculate body fat for last measurement
+  const bodyFat = React.useMemo(
+    () => calculateBodyFat(measurements).toFixed(2),
+    [measurements]
+  );
 
-      // Destroy old chart if any
-      if (chart) {
-        chart.destroy();
-      }
+  function handleRemove(index) {
+    if (!confirm("האם אתה בטוח שברצונך למחוק מדד זה?")) return;
+    removeMeasurement(index);
+  }
 
-      if (measurements.length===0) {
-        // If no data, skip creating a chart
-        chart = null;
-        return;
-      }
+  return (
+    <div className="flex flex-col min-h-screen">
+      {/* Header */}
+      <header className="bg-indigo-600 dark:bg-gray-700 text-white p-4 flex flex-row items-center justify-between mb-4 shadow">
+        <div className="flex items-center">
+          <svg
+            className="w-8 h-8 mr-2"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            viewBox="0 0 24 24"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+          </svg>
+          <h1 className="text-xl md:text-2xl font-bold">מעקב מדדים אישיים (React)</h1>
+        </div>
+        <ThemeToggle />
+      </header>
 
-      const labels = measurements.map((m, i) => {
-        const maybe = new Date(m.date);
-        if (!isNaN(maybe.getTime())) {
-          return `${String(maybe.getDate()).padStart(2,'0')}/${String(maybe.getMonth()+1).padStart(2,'0')}`;
-        }
-        return `מדד ${i+1}`;
-      });
+      {/* Main Content */}
+      <main className="w-full max-w-screen-lg mx-auto px-4 pb-24 flex-1 fade-in">
+        {/* Chart Card */}
+        <section className="mb-8">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow p-6 mb-6">
+            <div className="flex flex-col gap-4 items-center justify-center">
+              <div className="text-center">
+                <div className="flex justify-center items-center mb-2">
+                  <svg
+                    className="w-6 h-6 mr-2 text-indigo-600 dark:text-indigo-400"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l.37 1.138a1 1 0 00.95.69h1.2c.969 0 1.371 1.24.588 1.81l-.97.704a1 1 0 00-.363 1.118l.37 1.138c.3.922-.755 1.688-1.54 1.118l-.97-.704a1 1 0 00-1.175 0l-.97.704c-.785.57-1.84-.196-1.54-1.118l.37-1.138a1 1 0 00-.363-1.118l-.97-.704c-.783-.57-.38-1.81.588-1.81h1.2a1 1 0 00.951-.69l.37-1.138z"
+                    />
+                  </svg>
+                  <h2 className="text-2xl font-semibold">גרף מעקב ומדדים</h2>
+                </div>
+                <p className="text-lg font-medium">
+                  אחוז שומן משוער (ע"פ המדד האחרון):{" "}
+                  <span id="bodyFatVal" className="font-bold ml-2">
+                    {bodyFat}
+                  </span>
+                  %
+                </p>
+              </div>
+              <MeasurementsChart measurements={measurements} />
+            </div>
+          </div>
+        </section>
 
-      chart = new Chart(ctx, {
-        type: 'line',
-        data: {
-          labels,
-          datasets: [
-            {
-              label: 'צוואר (ס״מ)',
-              data: measurements.map(m=>m.neck),
-              borderColor: '#6366F1',
-              tension: 0.2,
-              fill: false
-            },
-            {
-              label: 'מותניים (ס״מ)',
-              data: measurements.map(m=>m.waist),
-              borderColor: '#10B981',
-              tension: 0.2,
-              fill: false
-            },
-            {
-              label: 'אגן (ס״מ)',
-              data: measurements.map(m=>m.hips),
-              borderColor: '#F59E0B',
-              tension: 0.2,
-              fill: false
-            },
-            {
-              label: 'משקל (ק״ג)',
-              data: measurements.map(m=>m.weight),
-              borderColor: '#EF4444',
-              tension: 0.2,
-              fill: false
-            }
-          ]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          scales: {
-            y: {
-              beginAtZero: false
-            }
-          }
-        }
-      });
-    }
-  </script>
+        {/* Measurements Table Section */}
+        <section>
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow p-6 mb-8">
+            <div className="flex justify-center items-center mb-4">
+              <svg
+                className="w-6 h-6 mr-2 text-indigo-600 dark:text-indigo-400"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 10h4l3 9 3-18 3 9h4" />
+              </svg>
+              <h2 className="text-2xl font-semibold text-center">רשימת מדדים</h2>
+            </div>
+
+            {/* Status message */}
+            {status.message && (
+              <div
+                className={`mt-2 p-3 rounded ${
+                  status.type === "success"
+                    ? "bg-green-100 text-green-700 dark:bg-green-800 dark:text-green-200"
+                    : "bg-red-100 text-red-700 dark:bg-red-800 dark:text-red-200"
+                }`}
+              >
+                {status.message}
+              </div>
+            )}
+
+            {/* No data message */}
+            {!measurements.length && (
+              <p className="text-gray-500 italic mb-4 text-center">
+                לא הוזנו מדדים עדיין.
+              </p>
+            )}
+
+            {/* Mobile (cards) */}
+            <div id="mobileMeasurements" className="block sm:hidden">
+              {measurements.map((m, idx) => {
+                const dateStr = formatDate(m.date, idx);
+                return (
+                  <div
+                    key={idx}
+                    className="bg-gray-50 dark:bg-gray-700 rounded mb-4 p-3 shadow flex flex-col"
+                  >
+                    <p className="text-sm"><span className="font-semibold">תאריך: </span>{dateStr}</p>
+                    <p className="text-sm"><span className="font-semibold">צוואר: </span>{m.neck}</p>
+                    <p className="text-sm"><span className="font-semibold">מותניים: </span>{m.waist}</p>
+                    <p className="text-sm"><span className="font-semibold">אגן: </span>{m.hips}</p>
+                    <p className="text-sm"><span className="font-semibold">משקל: </span>{m.weight}</p>
+                    <div className="mt-2">
+                      <button
+                        className="bg-red-600 hover:bg-red-700 text-white py-1 px-2 rounded focus:outline-none flex items-center justify-center gap-1"
+                        onClick={() => handleRemove(idx)}
+                      >
+                        <svg
+                          className="w-4 h-4"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M6 18L18 6M6 6l12 12"
+                          />
+                        </svg>
+                        הסר
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Desktop table */}
+            <div className="overflow-x-auto hidden sm:block">
+              <table className="w-full border-collapse text-center text-sm table-auto">
+                <thead className="bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200">
+                  <tr>
+                    <th className="border border-gray-200 dark:border-gray-600 py-2 px-2">תאריך</th>
+                    <th className="border border-gray-200 dark:border-gray-600 py-2 px-2">צוואר (ס״מ)</th>
+                    <th className="border border-gray-200 dark:border-gray-600 py-2 px-2">מותניים (ס״מ)</th>
+                    <th className="border border-gray-200 dark:border-gray-600 py-2 px-2">אגן (ס״מ)</th>
+                    <th className="border border-gray-200 dark:border-gray-600 py-2 px-2">משקל (ק״ג)</th>
+                    <th className="border border-gray-200 dark:border-gray-600 py-2 px-2">הסר</th>
+                  </tr>
+                </thead>
+                <tbody className="text-gray-700 dark:text-gray-100">
+                  {measurements.map((m, idx) => {
+                    const dateStr = formatDate(m.date, idx);
+                    return (
+                      <tr
+                        key={idx}
+                        className="transition hover:bg-gray-50 dark:hover:bg-gray-700"
+                      >
+                        <td className="border border-gray-200 dark:border-gray-600 py-2 px-2">
+                          {dateStr}
+                        </td>
+                        <td className="border border-gray-200 dark:border-gray-600 py-2 px-2">
+                          {m.neck}
+                        </td>
+                        <td className="border border-gray-200 dark:border-gray-600 py-2 px-2">
+                          {m.waist}
+                        </td>
+                        <td className="border border-gray-200 dark:border-gray-600 py-2 px-2">
+                          {m.hips}
+                        </td>
+                        <td className="border border-gray-200 dark:border-gray-600 py-2 px-2">
+                          {m.weight}
+                        </td>
+                        <td className="border border-gray-200 dark:border-gray-600 py-2 px-2">
+                          <button
+                            className="bg-red-600 hover:bg-red-700 text-white py-1 px-2 rounded focus:outline-none flex items-center justify-center gap-1 mx-auto"
+                            onClick={() => handleRemove(idx)}
+                          >
+                            <svg
+                              className="w-4 h-4"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                d="M6 18L18 6M6 6l12 12"
+                              />
+                            </svg>
+                            הסר
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+      </main>
+
+      {/* Floating button to open modal */}
+      <button
+        className="fixed bottom-6 right-6 bg-indigo-600 text-white rounded-full w-14 h-14 text-3xl shadow-lg flex items-center justify-center hover:bg-indigo-700 hover:animate-bounce transition-colors"
+        onClick={() => setModalOpen(true)}
+        title="הוסף מדדים"
+      >
+        <svg
+          className="h-8 w-8"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          viewBox="0 0 24 24"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+        </svg>
+      </button>
+
+      {/* AddMeasurementModal */}
+      <AddMeasurementModal
+        isOpen={modalOpen}
+        onClose={() => setModalOpen(false)}
+        onAdd={addMeasurement}
+      />
+    </div>
+  );
+}
+
+/** 
+ * Utility for date formatting; tries to parse `dateStr`.
+ * If parsing fails, just returns e.g. "מדד X".
+ */
+function formatDate(dateStr, idx) {
+  const maybe = new Date(dateStr);
+  if (!isNaN(maybe.getTime())) {
+    const d   = String(maybe.getDate()).padStart(2, '0');
+    const mon = String(maybe.getMonth() + 1).padStart(2, '0');
+    const y   = maybe.getFullYear();
+    const hh  = String(maybe.getHours()).padStart(2, '0');
+    const mn  = String(maybe.getMinutes()).padStart(2, '0');
+    return `${d}/${mon}/${y} ${hh}:${mn}`;
+  }
+  return `מדד ${idx + 1}`;
+}
+
+ReactDOM.render(<App />, document.getElementById('root'));
+</script>
 </body>
 </html>
+
